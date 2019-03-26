@@ -106,7 +106,7 @@ foreach ($users as $user) {
 
 Sk_model 代理调用了　CI_DB_active_record　的方法
 
-注意，如果你还不明白CI_DB_active_record库的查询生成器，你可以参考[http://codeigniter.org.cn/user_guide/database/active_record.html](CI的Active Record 类)
+注意，如果你还不明白CI_DB_active_record库的查询生成器，你可以参考[CI的Active Record 类](http://codeigniter.org.cn/user_guide/database/active_record.html)
 
 ```
 $this->load->model ( 'user_model' );
@@ -192,9 +192,9 @@ if ($result) {
 
 # 模型验证(Validation) 
 
-如果你还不了解CI的校验器CI_Form_validation请参考[http://codeigniter.org.cn/user_guide/libraries/form_validation.html](表单验证详解)
+如果你还不了解CI的校验器CI_Form_validation请参考[表单验证详解](http://codeigniter.org.cn/user_guide/libraries/form_validation.html)
 
-你可以使用 $_validation_rules 来列出规则与过滤器，他是一个数组，格式参考[http://codeigniter.org.cn/user_guide/libraries/form_validation.html#validationrulesasarray](表单验证-使用数组设置验证规则)
+你可以使用 $_validation_rules 来列出规则与过滤器，他是一个数组，格式参考[表单验证-使用数组设置验证规则](http://codeigniter.org.cn/user_guide/libraries/form_validation.html#validationrulesasarray)
 
 **TODO:** 考虑添加xss_clean的过滤器
 
