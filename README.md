@@ -1,3 +1,7 @@
+# 概述
+
+基于[CI](http://codeigniter.com/user_guide/) 2.1.4做ORM扩展类。
+
 对象关系映射（Object Relational Mapping 简称ORM）允许你把数据库中的数据当成一个PHP对象来操纵和控制。
 
 一旦你定义了ORM和你的数据库中数据的关系，那么无论你用任何你喜欢的方式操纵数据，以及保存结果到数据库，都不需要使用SQL语言。
