@@ -1,6 +1,6 @@
 # 概述
 
-基于[CI](http://codeigniter.com/user_guide/) 2.1.4做ORM扩展类。
+基于[CI](http://codeigniter.com/user_guide/) 即codeigniter框架2.1.4版本，做的ORM扩展类。
 
 对象关系映射（Object Relational Mapping 简称ORM）允许你把数据库中的数据当成一个PHP对象来操纵和控制。
 
