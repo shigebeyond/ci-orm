@@ -1,13 +1,24 @@
 <?php if (!defined('BASEPATH')) exit('No direct script access allowed');
 /**
+ * Base Model
+ *
  * model的基本实现,提供一些model的标准和规范,实现了一些基础通用的操作.
  *
  * @package		Core
  * @subpackage	Sk_Model
- * @author shijianhang
+ * @author weiminglei, shijianhang
  */
 class Sk_Model extends CI_Model
 {
+    /**
+     * 主库配置名
+     */
+    const DB_MASTER = 'default';
+
+    /**
+     * 从库配置名
+     */
+    const DB_SLAVE = 'slave';
 
 	/**
 	 * 用于存储错误信息.
@@ -248,13 +259,6 @@ class Sk_Model extends CI_Model
 	 */
 	public function find_by($field, $value = '', $type = 'and')
 	{
-		if (empty($field) || ( ! is_array($field) && empty($value)))
-		{
-			$this->error = '没有足够的条件查询数据';
-			$this->_logit('['. get_class($this) .': '. __METHOD__ .'] ' . $this->error);
-			return FALSE;
-		}
-		
 		if ( ! is_array($field))
 			$field = array($field => $value);
 
@@ -383,11 +387,13 @@ class Sk_Model extends CI_Model
 
     /**
      * 构建关联对象的查询
-     * @param $id
+     * @param array|int $fk 外键值，或当前模型的对象(外键值=对象[外键名])
+     *                  对于当前模型是主的关系，如 has_one/has_many， 直接传当前模型的id就行
+     *                  对于当前模型是从的关系，如 belongs_to， 直接传当前模型的对应的外键属性
      * @param $alias
      * @return CI_DB_active_record
      */
-    public function query_related($id, $alias)
+    public function query_related($fk, $alias)
     {
         // 获得关联模型
         $model = $this->_related_model($alias);
@@ -395,55 +401,69 @@ class Sk_Model extends CI_Model
             throw new Exception("不存在关联关系: $alias");
 
         // 构造联查条件
+        // 获得外键字段 + 外键值
         if (isset ($this->belongs_to [$alias])) {
             $column = $model->key;
+            if(is_array($fk))
+                $fk = $fk[$this->belongs_to [$alias] ['foreign_key']];
         } elseif (isset ($this->has_one [$alias])) {
             $column = $this->has_one [$alias] ['foreign_key'];
+            if(is_array($fk))
+                $fk = $fk[$this->key];
         } elseif (isset ($this->has_many [$alias])) {
             $column = $this->has_many [$alias] ['foreign_key'];
-            $orderby = $this->has_many [$alias] ['order'];
-            if($orderby)
-                $model->order_by($orderby);
+            if(isset($this->has_many [$alias] ['order']))
+                $model->order_by($this->has_many [$alias] ['order']);
+            if(is_array($fk))
+                $fk = $fk[$this->key];
         }
 
-        if(is_array($id))
-            return $model->where_in($column, $id);
+        if(is_array($fk))
+            return $model->where_in($column, $fk);
 
-        return $model->where($column, $id);
+        return $model->where($column, $fk);
     }
 
     /**
      * 查询关联对象
      *
-     * @param $id 本对象id
+     * @param array|int $fk 外键值，或当前模型的对象(外键值=对象[外键名])
+     *                  对于当前模型是主的关系，如 has_one/has_many， 直接传当前模型的id就行
+     *                  对于当前模型是从的关系，如 belongs_to， 直接传当前模型的对应的外键属性
      * @param $alias 关联对象别名
      * @return array OR FALSE.
      */
-    public function find_related($id, $alias)
+    public function find_related($fk, $alias)
     {
-        return $this->query_related($id, $alias)->find();
+        return $this->query_related($fk, $alias)->find();
     }
 
     /**
      * 查询关联对象
      *
-     * @param $id 本对象id
+     * @param array|int $fk 外键值，或当前模型的对象(外键值=对象[外键名])
+     *                  对于当前模型是主的关系，如 has_one/has_many， 直接传当前模型的id就行
+     *                  对于当前模型是从的关系，如 belongs_to， 直接传当前模型的对应的外键属性
      * @param $alias 关联对象别名
      * @return array OR FALSE.
      */
-    public function find_all_related($id, $alias)
+    public function find_all_related($fk, $alias)
     {
-        return $this->query_related($id, $alias)->find_all();
+        return $this->query_related($fk, $alias)->find_all();
     }
 
     /**
      * 统计关联表的行数.
      *
+     * @param array|int $fk 外键值，或当前模型的对象(外键值=对象[外键名])
+     *                  对于当前模型是主的关系，如 has_one/has_many， 直接传当前模型的id就行
+     *                  对于当前模型是从的关系，如 belongs_to， 直接传当前模型的对应的外键属性
+     * @param $alias 关联对象别名
      * @return int
      */
-    public function count_all_related($id, $alias)
+    public function count_all_related($fk, $alias)
     {
-        return $this->query_related($id, $alias)->count_all();
+        return $this->query_related($fk, $alias)->count_all();
     }
 
 	//----------------------------- 增加 ----------------------------------
@@ -559,9 +579,39 @@ class Sk_Model extends CI_Model
 	{
         $result = $this->db->update_batch($this->table, $data, $index);
         return empty($result) ? TRUE : FALSE;
-        
 	}
-	
+
+    /**
+     * 替换数据.
+     *
+     * @param array $data	更新的数据.
+     * @example $this->model->replace($data);
+     *
+     * @return bool TRUE/FALSE
+     */
+    public function replace($data)
+    {
+        // 数据验证
+        if ($this->skip_validation === FALSE)
+        {
+            $data = $this->validate($data);
+            if ($data === FALSE)
+                return FALSE;
+        }
+
+        $data = $this->trigger('before_update', $data);
+
+        $result = $this->db->replace($this->table, $data);
+
+        if ($result)
+        {
+            $this->trigger('after_update', array($data, $result));
+            return TRUE;
+        }
+
+        return FALSE;
+    }
+
 	//-------------------------------删除-------------------------------------
 	/**
 	 * 删除数据.
@@ -664,13 +714,6 @@ class Sk_Model extends CI_Model
 	 */
 	public function count_by($field, $value = NULL)
 	{
-		if ( (is_string($field) && empty($field)) || (!is_array($field) && empty($value)))
-		{
-			$this->error = '没有足够的条件来统计结果';
-			$this->_logit('['. get_class($this) .': '. __METHOD__ .'] '. $this->error);
-			return FALSE;
-		}
-
 		if( (is_array($field) && !empty($field)) || (is_string($field) && !empty($field)  && !empty($value)) ){
 			$this->db->where($field, $value);
 		}
@@ -892,29 +935,42 @@ class Sk_Model extends CI_Model
         if ($this->skip_validation)
             return $data;
 
+        // 获得校验规则
         $current_validation_rules = $this->get_validation_rules($type);
-
         if (empty($current_validation_rules))
             return $data;
 
-        foreach ($data as $key => $val)
-            $_POST[$key] = $val;
+        // 执行规则校验
+        $valid = $this->validate_rules($data, $current_validation_rules);
+        if(!$valid)
+            return FALSE;
+
+        return $data;
+    }
+
+    /**
+     * 执行规则校验
+     * @param $data
+     * @param $validation_rules
+     * @return bool
+     */
+    protected function validate_rules($data, $validation_rules)
+    {
+        if($data != $_POST)
+            foreach ($data as $key => $val)
+                $_POST[$key] = $val;
 
         $this->load->library('form_validation');
 
-        if (is_array($current_validation_rules)) {
-            $this->form_validation->set_rules($current_validation_rules);
+        if (is_array($validation_rules)) {
+            $this->form_validation->set_rules($validation_rules);
             $valid = $this->form_validation->run();
         } else {
-            $valid = $this->form_validation->run($current_validation_rules);
+            $valid = $this->form_validation->run($validation_rules);
         }
-
-        if ($valid !== TRUE) {
-            $this->error = validation_errors();
-            return FALSE;
-        }
-
-        return $data;
+        if (!$valid)
+            $this->error = validation_errors('', '');
+        return $valid;
     }
 
     //----------------------------- 错误与日志 ---------------------------------------
@@ -998,4 +1054,5 @@ class Sk_Model extends CI_Model
     public function offset($offset) { $this->db->offset($offset); return $this; }
     public function set($key, $value = '', $escape = TRUE) { $this->db->set($key, $value, $escape); return $this; }
     public function order_by($orderby, $direction = ''){ $this->db->order_by($orderby, $direction); return $this; }
+    public function affected_rows(){ return $this->db->affected_rows(); }
 }
